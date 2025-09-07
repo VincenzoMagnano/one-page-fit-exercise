@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { useLocalList } from "./hooks/useLocalList";
-import type { ExerciseItem, SectionItem } from "./types";
+import type { ExerciseItem, SectionItem, Item } from "./types";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card } from "./components/ui/card";
@@ -9,7 +9,7 @@ import { AlertDialog } from "./components/ui/alert-dialog";
 import { X, ChevronDown, Plus } from "lucide-react";
 
 function App() {
-  const { items, add, update, remove, clearAll, duplicateLast } = useLocalList();
+  const { items, add, update, remove, clearAll, duplicateLast, setItems } = useLocalList();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -23,6 +23,9 @@ function App() {
     restSec: "",
   });
   const [newSectionTitle, setNewSectionTitle] = useState("");
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number; type: 'exercise' | 'section' } | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'exercise' | 'section' } | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const exerciseRef = useRef<HTMLInputElement | null>(null);
   const lastScrollYRef = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -48,6 +51,17 @@ function App() {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
   }, []);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    function handleClickOutside() {
+      setContextMenu(null);
+    }
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [contextMenu]);
 
   const parsedRest = useMemo(() => {
     const trimmed = composer.restSec.trim();
@@ -93,6 +107,84 @@ function App() {
     setNewSectionTitle("");
   }
 
+  function handleInsertSectionAbove(exerciseId: string) {
+    const exerciseIndex = items.findIndex(item => item.id === exerciseId);
+    if (exerciseIndex === -1) return;
+    
+    const title = prompt("Section title:");
+    if (!title?.trim()) return;
+    
+    const newSection = { type: "section" as const, id: generateId(), title: title.trim() };
+    setItems((prev: Item[]) => [
+      ...prev.slice(0, exerciseIndex),
+      newSection,
+      ...prev.slice(exerciseIndex)
+    ]);
+  }
+
+  function generateId(): string {
+    try {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+    } catch {
+      // ignore
+    }
+    const random = Math.floor(Math.random() * 1e9).toString(36);
+    return `${Date.now().toString(36)}-${random}`;
+  }
+
+  function handleContextMenu(e: React.MouseEvent, id: string, type: 'exercise' | 'section') {
+    e.preventDefault();
+    setContextMenu({ id, x: e.clientX, y: e.clientY, type });
+  }
+
+  function handleDeleteSection(sectionId: string) {
+    remove(sectionId);
+    setContextMenu(null);
+  }
+
+  function handleDragStart(e: React.MouseEvent | React.TouchEvent, id: string, type: 'exercise' | 'section') {
+    e.preventDefault();
+    setDraggedItem({ id, type });
+    setContextMenu(null);
+  }
+
+  function handleDragOver(e: React.MouseEvent | React.TouchEvent, index: number) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function handleDragEnd() {
+    if (!draggedItem || dragOverIndex === null) {
+      setDraggedItem(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const draggedIndex = items.findIndex(item => item.id === draggedItem.id);
+    if (draggedIndex === -1 || draggedIndex === dragOverIndex) {
+      setDraggedItem(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    // Reorder items
+    const newItems = [...items];
+    const [draggedItemData] = newItems.splice(draggedIndex, 1);
+    newItems.splice(dragOverIndex, 0, draggedItemData);
+    
+    setItems(newItems);
+    setDraggedItem(null);
+    setDragOverIndex(null);
+  }
+
+  function handleTouchStart(e: React.TouchEvent, id: string, type: 'exercise' | 'section') {
+    // Prevent context menu on long press
+    e.preventDefault();
+    handleDragStart(e, id, type);
+  }
+
   function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -116,21 +208,58 @@ function App() {
         </header>
 
         <main className="p-4 space-y-3">
-          {items.map((it) => {
+          {items.map((it, index) => {
             if (it.type === "section") {
               return (
-                <div key={it.id} className="px-1 pt-4">
-                  <div className="text-xs uppercase tracking-wide text-neutral-400">{it.title}</div>
+                <div 
+                  key={it.id} 
+                  className={`px-1 pt-6 pb-2 relative transition-all duration-200 ${
+                    draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
+                  } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
+                  onContextMenu={(e) => handleContextMenu(e, it.id, 'section')}
+                  onMouseDown={(e) => handleDragStart(e, it.id, 'section')}
+                  onTouchStart={(e) => handleTouchStart(e, it.id, 'section')}
+                  onMouseUp={handleDragEnd}
+                  onTouchEnd={handleDragEnd}
+                  onMouseMove={(e) => handleDragOver(e, index)}
+                  onTouchMove={(e) => handleDragOver(e, index)}
+                  style={{ cursor: 'grab' }}
+                >
+                  <div className="flex items-center justify-between border-b border-neutral-700 pb-2">
+                    <div className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
+                      {it.title}
+                    </div>
+                    <button
+                      className="text-neutral-500 hover:text-red-400 p-1 transition-colors"
+                      onClick={() => handleDeleteSection(it.id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               );
             }
             const isOpen = !!openById[it.id];
             return (
-              <Card key={it.id} className="flex flex-col">
+              <Card 
+                key={it.id} 
+                className={`flex flex-col transition-all duration-200 ${
+                  draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
+                } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
+                onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
+                onMouseDown={(e) => handleDragStart(e, it.id, 'exercise')}
+                onTouchStart={(e) => handleTouchStart(e, it.id, 'exercise')}
+                onMouseUp={handleDragEnd}
+                onTouchEnd={handleDragEnd}
+                onMouseMove={(e) => handleDragOver(e, index)}
+                onTouchMove={(e) => handleDragOver(e, index)}
+                style={{ cursor: 'grab' }}
+              >
                 <button
                   type="button"
                   className="w-full px-3 py-2 flex items-center justify-between gap-3"
                   onClick={() => setOpenById((s) => ({ ...s, [it.id]: !s[it.id] }))}
+                  onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <div className="font-semibold truncate">{it.exercise || "Unnamed"}</div>
@@ -294,8 +423,8 @@ function App() {
               <Button className="col-span-4 sm:col-span-1 w-full" variant="secondary" onClick={handleAddSection}>Add section</Button>
             </div>
             <div className="pb-[calc(12px+var(--safe-bottom))]" />
-          </div>
         </div>
+      </div>
       {/* Floating Action Button */}
       <Button
         aria-label="Add"
@@ -307,6 +436,35 @@ function App() {
       >
         <Plus className="h-7 w-7" />
       </Button>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl py-1 min-w-[160px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onMouseLeave={() => setContextMenu(null)}
+        >
+          {contextMenu.type === 'exercise' && (
+            <button
+              className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700"
+              onClick={() => {
+                handleInsertSectionAbove(contextMenu.id);
+                setContextMenu(null);
+              }}
+            >
+              Insert section above
+            </button>
+          )}
+          {contextMenu.type === 'section' && (
+            <button
+              className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-neutral-700"
+              onClick={() => handleDeleteSection(contextMenu.id)}
+            >
+              Delete section
+            </button>
+          )}
+        </div>
+      )}
 
       <AlertDialog
         open={confirmOpen}

@@ -113,8 +113,8 @@ export function useLocalList() {
   }, []);
 
   return useMemo(
-    () => ({ items, add, update, remove, clearAll, duplicateLast }),
-    [items, add, update, remove, clearAll, duplicateLast]
+    () => ({ items, add, update, remove, clearAll, duplicateLast, setItems }),
+    [items, add, update, remove, clearAll, duplicateLast, setItems]
   );
 }
 
