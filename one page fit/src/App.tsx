@@ -57,7 +57,8 @@ function App() {
     } satisfies Omit<ExerciseItem, "id">;
     if (!payload.exercise && !payload.reps && payload.restSec === undefined) return;
     add(payload);
-    // keep composer values, refocus exercise
+    // reset composer values and refocus exercise
+    setComposer({ exercise: "", series: "", reps: "", weight: "", restSec: "" });
     exerciseRef.current?.focus();
   }
 
