@@ -191,7 +191,6 @@ function App() {
         <div className="mx-auto w-full max-w-screen-sm p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="text-sm text-neutral-300">Composer</div>
-              <Button variant="secondary" onClick={() => setComposerOpen(false)}>Nascondi</Button>
             </div>
             <div className="grid grid-cols-4 sm:grid-cols-[1fr_72px_92px_92px_92px_48px] gap-2">
               <Input
@@ -237,7 +236,7 @@ function App() {
             </div>
             <div className="grid grid-cols-4 sm:grid-cols-[1fr_120px] gap-2">
               <Input
-                className="col-span-3 sm:col-span-1"
+                className="col-span-4 sm:col-span-1"
                 value={newSectionTitle}
                 placeholder="Section title (e.g., Warm-up)"
                 onChange={(e) => setNewSectionTitle(e.target.value)}
@@ -245,7 +244,7 @@ function App() {
                   if (e.key === "Enter") handleAddSection();
                 }}
               />
-              <Button className="col-span-1 sm:col-span-1" variant="secondary" onClick={handleAddSection}>Add section</Button>
+              <Button className="col-span-4 sm:col-span-1 w-full" variant="secondary" onClick={handleAddSection}>Add section</Button>
             </div>
             <div className="pb-[calc(12px+var(--safe-bottom))]" />
           </div>
