@@ -1,12 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import type React from "react";
 import { useLocalList } from "./hooks/useLocalList";
-import type { Item } from "./types";
+import type { ExerciseItem, SectionItem } from "./types";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
-import { Separator } from "./components/ui/separator";
 import { AlertDialog } from "./components/ui/alert-dialog";
 import { X, ChevronDown } from "lucide-react";
 
@@ -23,6 +22,7 @@ function App() {
     weight: "",
     restSec: "",
   });
+  const [newSectionTitle, setNewSectionTitle] = useState("");
   const exerciseRef = useRef<HTMLInputElement | null>(null);
 
   const parsedRest = useMemo(() => {
@@ -48,16 +48,24 @@ function App() {
 
   function handleAdd() {
     const payload = {
+      type: "exercise" as const,
       exercise: composer.exercise.trim(),
       series: parsedSeries,
       reps: composer.reps.trim() || undefined,
       weight: parsedWeight,
       restSec: parsedRest,
-    } satisfies Omit<Item, "id">;
+    } satisfies Omit<ExerciseItem, "id">;
     if (!payload.exercise && !payload.reps && payload.restSec === undefined) return;
     add(payload);
     // keep composer values, refocus exercise
     exerciseRef.current?.focus();
+  }
+
+  function handleAddSection() {
+    const title = newSectionTitle.trim();
+    if (!title) return;
+    add({ type: "section", title } as Omit<SectionItem, "id">);
+    setNewSectionTitle("");
   }
 
   function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -67,8 +75,7 @@ function App() {
     }
   }
 
-  const repsChips = ["×5", "×8", "×10", "AMRAP"];
-  const restChips = [60, 90, 120];
+  
 
   return (
     <div className="min-h-full flex flex-col items-center">
@@ -86,6 +93,13 @@ function App() {
 
         <main className="p-4 space-y-3">
           {items.map((it) => {
+            if (it.type === "section") {
+              return (
+                <div key={it.id} className="px-1 pt-4">
+                  <div className="text-xs uppercase tracking-wide text-neutral-400">{it.title}</div>
+                </div>
+              );
+            }
             const isOpen = !!openById[it.id];
             return (
               <Card key={it.id} className="flex flex-col">
@@ -220,21 +234,19 @@ function App() {
             <Button className="col-span-4 sm:col-span-1" onClick={handleAdd}>Add</Button>
           </div>
           )}
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-neutral-400">Reps:</span>
-            {repsChips.map((r) => (
-              <Button key={r} size="sm" variant="ghost" onClick={() => setComposer((s) => ({ ...s, reps: r }))}>
-                {r}
-              </Button>
-            ))}
-            <Separator />
-            <span className="text-neutral-400">Rest:</span>
-            {restChips.map((r) => (
-              <Button key={r} size="sm" variant="ghost" onClick={() => setComposer((s) => ({ ...s, restSec: String(r) }))}>
-                {r}s
-              </Button>
-            ))}
+          <div className="grid grid-cols-4 sm:grid-cols-[1fr_120px] gap-2">
+            <Input
+              className="col-span-3 sm:col-span-1"
+              value={newSectionTitle}
+              placeholder="Section title (e.g., Warm-up)"
+              onChange={(e) => setNewSectionTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAddSection();
+              }}
+            />
+            <Button className="col-span-1 sm:col-span-1" variant="secondary" onClick={handleAddSection}>Add section</Button>
           </div>
+          
           <div className="pb-[calc(12px+var(--safe-bottom))]" />
         </div>
       </footer>

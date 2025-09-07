@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Item } from "../types";
+import type { ExerciseItem, Item, SectionItem } from "../types";
 import { LOCAL_STORAGE_KEY } from "../types";
 
-type AddPayload = Omit<Item, "id">;
+type AddPayload = Omit<ExerciseItem, "id"> | Omit<SectionItem, "id">;
 
 function parseInitial(): Item[] {
   try {
@@ -10,7 +10,30 @@ function parseInitial(): Item[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x) => x && typeof x.id === "string" && typeof x.exercise === "string");
+    // Backward compatibility: old entries were exercises without `type`
+    const normalized: Item[] = parsed
+      .map((x: any) => {
+        if (x && typeof x === "object" && typeof x.id === "string") {
+          if (x.type === "section" && typeof x.title === "string") {
+            return { type: "section", id: x.id, title: x.title } as SectionItem;
+          }
+          // treat as exercise item
+          if (typeof x.exercise === "string") {
+            return {
+              type: "exercise",
+              id: x.id,
+              exercise: x.exercise ?? "",
+              series: typeof x.series === "number" ? x.series : undefined,
+              reps: typeof x.reps === "string" ? x.reps : undefined,
+              weight: typeof x.weight === "number" ? x.weight : undefined,
+              restSec: typeof x.restSec === "number" ? x.restSec : undefined,
+            } as ExerciseItem;
+          }
+        }
+        return null;
+      })
+      .filter(Boolean);
+    return normalized as Item[];
   } catch {
     return [];
   }
@@ -45,22 +68,30 @@ export function useLocalList() {
   }, [items]);
 
   const add = useCallback((payload: AddPayload) => {
-    const hasAny = (payload.exercise?.trim() ?? "") || (payload.reps?.trim() ?? "") || (payload.restSec ?? "") !== "";
+    if ((payload as any).type === "section") {
+      const title = (payload as SectionItem).title?.trim() ?? "";
+      if (!title) return;
+      setItems((prev) => [...prev, { type: "section", id: generateId(), title }]);
+      return;
+    }
+    const ex = payload as ExerciseItem;
+    const hasAny = (ex.exercise?.trim() ?? "") || (ex.reps?.trim() ?? "") || (ex.restSec ?? "") !== "";
     if (!hasAny) return; // ignore empty add
     setItems((prev) => [
       ...prev,
       {
+        type: "exercise",
         id: generateId(),
-        exercise: payload.exercise ?? "",
-        series: typeof (payload as any).series === "number" ? (payload as any).series : undefined,
-        reps: payload.reps || (payload.reps === "" ? undefined : undefined),
-        weight: typeof (payload as any).weight === "number" ? (payload as any).weight : undefined,
-        restSec: typeof payload.restSec === "number" ? payload.restSec : undefined,
+        exercise: ex.exercise ?? "",
+        series: typeof ex.series === "number" ? ex.series : undefined,
+        reps: ex.reps || (ex.reps === "" ? undefined : undefined),
+        weight: typeof ex.weight === "number" ? ex.weight : undefined,
+        restSec: typeof ex.restSec === "number" ? ex.restSec : undefined,
       },
     ]);
   }, []);
 
-  const update = useCallback((id: string, patch: Partial<Omit<Item, "id">>) => {
+  const update = useCallback((id: string, patch: any) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }, []);
 
