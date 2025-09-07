@@ -6,7 +6,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card } from "./components/ui/card";
 import { AlertDialog } from "./components/ui/alert-dialog";
-import { X, ChevronDown, Plus } from "lucide-react";
+import { X, ChevronDown, Plus, GripVertical } from "lucide-react";
 
 function App() {
   const { items, add, update, remove, clearAll, duplicateLast, setItems } = useLocalList();
@@ -65,21 +65,6 @@ function App() {
     }
   }, [contextMenu]);
 
-  // Prevent scroll during drag on mobile
-  useEffect(() => {
-    if (isDragging) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.touchAction = 'none';
-    } else {
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    }
-    
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    };
-  }, [isDragging]);
 
   const parsedRest = useMemo(() => {
     const trimmed = composer.restSec.trim();
@@ -197,8 +182,7 @@ function App() {
     setDragOverIndex(null);
   }
 
-  function handleTouchStart(e: React.TouchEvent, id: string, type: 'exercise' | 'section') {
-    // Prevent text selection and context menu
+  function handleDragHandleTouchStart(e: React.TouchEvent, id: string, type: 'exercise' | 'section') {
     e.preventDefault();
     e.stopPropagation();
     
@@ -207,9 +191,14 @@ function App() {
     setIsDragging(true);
     setDraggedItem({ id, type });
     setContextMenu(null);
+    
+    // Prevent page scroll
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
   }
 
-  function handleTouchMove(e: React.TouchEvent, index: number) {
+  function handleDragHandleTouchMove(e: React.TouchEvent, index: number) {
     if (!isDragging) return;
     
     e.preventDefault();
@@ -218,17 +207,21 @@ function App() {
     const touch = e.touches[0];
     const deltaY = Math.abs(touch.clientY - touchStartY);
     
-    // Only start drag if moved more than 10px
-    if (deltaY > 10) {
+    if (deltaY > 15) {
       setDragOverIndex(index);
     }
   }
 
-  function handleTouchEnd(e: React.TouchEvent) {
+  function handleDragHandleTouchEnd(e: React.TouchEvent) {
     if (!isDragging) return;
     
     e.preventDefault();
     e.stopPropagation();
+    
+    // Restore page scroll
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
     
     setIsDragging(false);
     handleDragEnd();
@@ -266,17 +259,24 @@ function App() {
                     draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
                   } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
                   onContextMenu={(e) => handleContextMenu(e, it.id, 'section')}
-                  onMouseDown={(e) => handleDragStart(e, it.id, 'section')}
-                  onTouchStart={(e) => handleTouchStart(e, it.id, 'section')}
-                  onMouseUp={handleDragEnd}
-                  onTouchEnd={handleTouchEnd}
-                  onMouseMove={(e) => handleDragOver(e, index)}
-                  onTouchMove={(e) => handleTouchMove(e, index)}
                   style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
                 >
                   <div className="flex items-center justify-between border-b border-neutral-700 pb-2">
-                    <div className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
-                      {it.title}
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="text-neutral-500 p-1 cursor-grab active:cursor-grabbing"
+                        onTouchStart={(e) => handleDragHandleTouchStart(e, it.id, 'section')}
+                        onTouchMove={(e) => handleDragHandleTouchMove(e, index)}
+                        onTouchEnd={handleDragHandleTouchEnd}
+                        onMouseDown={(e) => handleDragStart(e, it.id, 'section')}
+                        onMouseMove={(e) => handleDragOver(e, index)}
+                        onMouseUp={handleDragEnd}
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </div>
+                      <div className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
+                        {it.title}
+                      </div>
                     </div>
                     <button
                       className="text-neutral-500 hover:text-red-400 p-1 transition-colors"
@@ -296,23 +296,29 @@ function App() {
                   draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
                 } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
                 onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
-                onMouseDown={(e) => handleDragStart(e, it.id, 'exercise')}
-                onTouchStart={(e) => handleTouchStart(e, it.id, 'exercise')}
-                onMouseUp={handleDragEnd}
-                onTouchEnd={handleTouchEnd}
-                onMouseMove={(e) => handleDragOver(e, index)}
-                onTouchMove={(e) => handleTouchMove(e, index)}
                 style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
-                <button
-                  type="button"
-                  className="w-full px-3 py-2 flex items-center justify-between gap-3 select-none"
-                  onClick={() => setOpenById((s) => ({ ...s, [it.id]: !s[it.id] }))}
-                  onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
-                  style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div className="font-semibold truncate">{it.exercise || "Unnamed"}</div>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="text-neutral-500 p-1 cursor-grab active:cursor-grabbing"
+                    onTouchStart={(e) => handleDragHandleTouchStart(e, it.id, 'exercise')}
+                    onTouchMove={(e) => handleDragHandleTouchMove(e, index)}
+                    onTouchEnd={handleDragHandleTouchEnd}
+                    onMouseDown={(e) => handleDragStart(e, it.id, 'exercise')}
+                    onMouseMove={(e) => handleDragOver(e, index)}
+                    onMouseUp={handleDragEnd}
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </div>
+                  <button
+                    type="button"
+                    className="flex-1 px-3 py-2 flex items-center justify-between gap-3 select-none"
+                    onClick={() => setOpenById((s) => ({ ...s, [it.id]: !s[it.id] }))}
+                    onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
+                    style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="font-semibold truncate">{it.exercise || "Unnamed"}</div>
                     {!isOpen && (
                       <div className="flex items-center gap-1 text-sm text-neutral-300">
                         {typeof it.series === "number" && it.reps ? (
@@ -341,9 +347,10 @@ function App() {
                         )}
                       </div>
                     )}
-                  </div>
-                  <ChevronDown className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : "rotate-0"}`} />
-                </button>
+                    </div>
+                    <ChevronDown className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : "rotate-0"}`} />
+                  </button>
+                </div>
                 {isOpen && (
                   <div className="px-3 pb-3 pt-1 flex items-start gap-3">
                     <div className="grid grid-cols-6 sm:grid-cols-5 gap-2 flex-1">
