@@ -26,6 +26,8 @@ function App() {
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number; type: 'exercise' | 'section' } | null>(null);
   const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'exercise' | 'section' } | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [touchStartY, setTouchStartY] = useState(0);
   const exerciseRef = useRef<HTMLInputElement | null>(null);
   const lastScrollYRef = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -62,6 +64,22 @@ function App() {
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [contextMenu]);
+
+  // Prevent scroll during drag on mobile
+  useEffect(() => {
+    if (isDragging) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isDragging]);
 
   const parsedRest = useMemo(() => {
     const trimmed = composer.restSec.trim();
@@ -183,12 +201,37 @@ function App() {
     // Prevent text selection and context menu
     e.preventDefault();
     e.stopPropagation();
-    handleDragStart(e, id, type);
+    
+    const touch = e.touches[0];
+    setTouchStartY(touch.clientY);
+    setIsDragging(true);
+    setDraggedItem({ id, type });
+    setContextMenu(null);
   }
 
-  function handleTouchMove(e: React.TouchEvent) {
+  function handleTouchMove(e: React.TouchEvent, index: number) {
+    if (!isDragging) return;
+    
     e.preventDefault();
     e.stopPropagation();
+    
+    const touch = e.touches[0];
+    const deltaY = Math.abs(touch.clientY - touchStartY);
+    
+    // Only start drag if moved more than 10px
+    if (deltaY > 10) {
+      setDragOverIndex(index);
+    }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!isDragging) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragging(false);
+    handleDragEnd();
   }
 
   function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -226,9 +269,9 @@ function App() {
                   onMouseDown={(e) => handleDragStart(e, it.id, 'section')}
                   onTouchStart={(e) => handleTouchStart(e, it.id, 'section')}
                   onMouseUp={handleDragEnd}
-                  onTouchEnd={handleDragEnd}
+                  onTouchEnd={handleTouchEnd}
                   onMouseMove={(e) => handleDragOver(e, index)}
-                  onTouchMove={handleTouchMove}
+                  onTouchMove={(e) => handleTouchMove(e, index)}
                   style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
                 >
                   <div className="flex items-center justify-between border-b border-neutral-700 pb-2">
@@ -256,9 +299,9 @@ function App() {
                 onMouseDown={(e) => handleDragStart(e, it.id, 'exercise')}
                 onTouchStart={(e) => handleTouchStart(e, it.id, 'exercise')}
                 onMouseUp={handleDragEnd}
-                onTouchEnd={handleDragEnd}
+                onTouchEnd={handleTouchEnd}
                 onMouseMove={(e) => handleDragOver(e, index)}
-                onTouchMove={handleTouchMove}
+                onTouchMove={(e) => handleTouchMove(e, index)}
                 style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
                 <button
