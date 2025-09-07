@@ -99,7 +99,7 @@ function App() {
                     {!isOpen && (
                       <div className="flex items-center gap-1">
                         {it.reps ? <Badge>{it.reps}</Badge> : null}
-                        {typeof it.restSec === "number" ? <Badge variant="secondary">{it.restSec}s</Badge> : null}
+                        {typeof it.restSec === "number" ? <Badge>{it.restSec}s</Badge> : null}
                       </div>
                     )}
                   </div>
