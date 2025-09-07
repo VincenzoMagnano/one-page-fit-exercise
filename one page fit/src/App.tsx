@@ -7,13 +7,13 @@ import { Input } from "./components/ui/input";
 import { Card } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
 import { AlertDialog } from "./components/ui/alert-dialog";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronDown, Plus } from "lucide-react";
 
 function App() {
   const { items, add, update, remove, clearAll, duplicateLast } = useLocalList();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(true);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [openById, setOpenById] = useState<Record<string, boolean>>({});
   const [composer, setComposer] = useState<{ exercise: string; series: string; reps: string; weight: string; restSec: string }>({
     exercise: "",
@@ -79,12 +79,11 @@ function App() {
 
   return (
     <div className="min-h-full flex flex-col items-center">
-      <div className="w-full max-w-screen-sm flex-1 pb-[calc(96px+var(--safe-bottom))]">
+      <div className="w-full max-w-screen-sm flex-1 pb-[calc(24px+var(--safe-bottom))]">
         <header className="sticky top-0 z-10 bg-neutral-950/80 backdrop-blur border-b border-neutral-800">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="font-semibold">Gym TODO</div>
             <div className="flex items-center gap-2">
-              <Badge>{items.length} items</Badge>
               <Button variant="secondary" onClick={duplicateLast}>Duplicate last</Button>
               <Button variant="destructive" onClick={() => setConfirmOpen(true)}>Clear all</Button>
             </div>
@@ -182,74 +181,86 @@ function App() {
         </main>
       </div>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-20 bg-neutral-950/95 backdrop-blur border-t border-neutral-800">
+      {/* Composer Panel (animated) */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-20 bg-neutral-950/95 backdrop-blur border-t border-neutral-800 transform transition-all duration-300 ${
+          composerOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"
+        }`}
+        aria-hidden={!composerOpen}
+      >
         <div className="mx-auto w-full max-w-screen-sm p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-neutral-300">Composer</div>
-            <Button variant="secondary" onClick={() => setComposerOpen((v) => !v)}>
-              {composerOpen ? "Nascondi" : "Mostra"}
-            </Button>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-neutral-300">Composer</div>
+              <Button variant="secondary" onClick={() => setComposerOpen(false)}>Nascondi</Button>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-[1fr_72px_92px_92px_92px_48px] gap-2">
+              <Input
+                ref={exerciseRef}
+                className="col-span-4 sm:col-span-1"
+                value={composer.exercise}
+                placeholder="Exercise"
+                onChange={(e) => setComposer((s) => ({ ...s, exercise: e.target.value }))}
+                onKeyDown={handleEnter}
+              />
+              <Input
+                className="col-span-2 sm:col-span-1"
+                value={composer.series}
+                inputMode="numeric"
+                placeholder="Series"
+                onChange={(e) => setComposer((s) => ({ ...s, series: e.target.value }))}
+                onKeyDown={handleEnter}
+              />
+              <Input
+                className="col-span-2 sm:col-span-1"
+                value={composer.reps}
+                placeholder="Reps"
+                onChange={(e) => setComposer((s) => ({ ...s, reps: e.target.value }))}
+                onKeyDown={handleEnter}
+              />
+              <Input
+                className="col-span-2 sm:col-span-1"
+                value={composer.weight}
+                inputMode="numeric"
+                placeholder="Weight"
+                onChange={(e) => setComposer((s) => ({ ...s, weight: e.target.value }))}
+                onKeyDown={handleEnter}
+              />
+              <Input
+                className="col-span-2 sm:col-span-1"
+                value={composer.restSec}
+                inputMode="numeric"
+                placeholder="Rest (s)"
+                onChange={(e) => setComposer((s) => ({ ...s, restSec: e.target.value }))}
+                onKeyDown={handleEnter}
+              />
+              <Button className="col-span-4 sm:col-span-1" onClick={handleAdd}>Add</Button>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-[1fr_120px] gap-2">
+              <Input
+                className="col-span-3 sm:col-span-1"
+                value={newSectionTitle}
+                placeholder="Section title (e.g., Warm-up)"
+                onChange={(e) => setNewSectionTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddSection();
+                }}
+              />
+              <Button className="col-span-1 sm:col-span-1" variant="secondary" onClick={handleAddSection}>Add section</Button>
+            </div>
+            <div className="pb-[calc(12px+var(--safe-bottom))]" />
           </div>
-          {composerOpen && (
-          <div className="grid grid-cols-4 sm:grid-cols-[1fr_72px_92px_92px_92px_48px] gap-2">
-            <Input
-              ref={exerciseRef}
-              className="col-span-4 sm:col-span-1"
-              value={composer.exercise}
-              placeholder="Exercise"
-              onChange={(e) => setComposer((s) => ({ ...s, exercise: e.target.value }))}
-              onKeyDown={handleEnter}
-            />
-            <Input
-              className="col-span-2 sm:col-span-1"
-              value={composer.series}
-              inputMode="numeric"
-              placeholder="Series"
-              onChange={(e) => setComposer((s) => ({ ...s, series: e.target.value }))}
-              onKeyDown={handleEnter}
-            />
-            <Input
-              className="col-span-2 sm:col-span-1"
-              value={composer.reps}
-              placeholder="Reps"
-              onChange={(e) => setComposer((s) => ({ ...s, reps: e.target.value }))}
-              onKeyDown={handleEnter}
-            />
-            <Input
-              className="col-span-2 sm:col-span-1"
-              value={composer.weight}
-              inputMode="numeric"
-              placeholder="Weight"
-              onChange={(e) => setComposer((s) => ({ ...s, weight: e.target.value }))}
-              onKeyDown={handleEnter}
-            />
-            <Input
-              className="col-span-2 sm:col-span-1"
-              value={composer.restSec}
-              inputMode="numeric"
-              placeholder="Rest (s)"
-              onChange={(e) => setComposer((s) => ({ ...s, restSec: e.target.value }))}
-              onKeyDown={handleEnter}
-            />
-            <Button className="col-span-4 sm:col-span-1" onClick={handleAdd}>Add</Button>
-          </div>
-          )}
-          <div className="grid grid-cols-4 sm:grid-cols-[1fr_120px] gap-2">
-            <Input
-              className="col-span-3 sm:col-span-1"
-              value={newSectionTitle}
-              placeholder="Section title (e.g., Warm-up)"
-              onChange={(e) => setNewSectionTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAddSection();
-              }}
-            />
-            <Button className="col-span-1 sm:col-span-1" variant="secondary" onClick={handleAddSection}>Add section</Button>
-          </div>
-          
-          <div className="pb-[calc(12px+var(--safe-bottom))]" />
         </div>
-      </footer>
+      {/* Floating Action Button */}
+      <Button
+        aria-label="Add"
+        size="icon"
+        className={`fixed bottom-[calc(16px+var(--safe-bottom))] right-4 z-30 rounded-full h-14 w-14 shadow-xl transition-transform duration-300 ${
+          composerOpen ? "rotate-45 scale-95" : "hover:scale-110 active:scale-95"
+        }`}
+        onClick={() => setComposerOpen((v) => !v)}
+      >
+        <Plus className="h-7 w-7" />
+      </Button>
 
       <AlertDialog
         open={confirmOpen}
