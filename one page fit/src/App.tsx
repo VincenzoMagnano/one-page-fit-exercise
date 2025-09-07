@@ -245,6 +245,57 @@ function App() {
     }, 200);
   };
 
+  const copyAllContent = async () => {
+    let content = "🏋️ GYM TODO - Workout Plan\n";
+    content += "=" .repeat(30) + "\n\n";
+    
+    if (items.length === 0) {
+      content += "No exercises added yet.\n";
+    } else {
+      items.forEach((item, index) => {
+        if (item.type === "section") {
+          content += `\n📁 ${item.title.toUpperCase()}\n`;
+          content += "-".repeat(item.title.length + 4) + "\n";
+        } else {
+          // Exercise item
+          const exerciseName = item.exercise || "Unnamed Exercise";
+          content += `${index + 1}. ${exerciseName}`;
+          
+          const details = [];
+          if (typeof item.series === "number") details.push(`${item.series} series`);
+          if (item.reps) details.push(`${item.reps} reps`);
+          if (typeof item.weight === "number") details.push(`${item.weight}kg`);
+          if (typeof item.restSec === "number") details.push(`${item.restSec}s rest`);
+          
+          if (details.length > 0) {
+            content += ` (${details.join(", ")})`;
+          }
+          content += "\n";
+        }
+      });
+    }
+    
+    content += "\n" + "=" .repeat(30) + "\n";
+    content += `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}\n`;
+    
+    try {
+      await navigator.clipboard.writeText(content);
+      // You could add a toast notification here if you have one
+      alert("Workout plan copied to clipboard! 💪");
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = content;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      alert("Workout plan copied to clipboard! 💪");
+    }
+    
+    closeBurgerMenu();
+  };
+
   function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -290,6 +341,12 @@ function App() {
                     }}
                   >
                     Duplicate last
+                  </button>
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-150"
+                    onClick={copyAllContent}
+                  >
+                    Copy workout plan
                   </button>
                   <div className="border-t border-neutral-700 my-1" />
                   <button
