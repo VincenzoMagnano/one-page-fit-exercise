@@ -11,7 +11,7 @@ function parseInitial(): Item[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     // Backward compatibility: old entries were exercises without `type`
-    const normalized: Item[] = parsed
+    const normalized = (parsed as any[])
       .map((x: any) => {
         if (x && typeof x === "object" && typeof x.id === "string") {
           if (x.type === "section" && typeof x.title === "string") {
@@ -32,8 +32,8 @@ function parseInitial(): Item[] {
         }
         return null;
       })
-      .filter(Boolean);
-    return normalized as Item[];
+      .filter((v): v is Item => v !== null);
+    return normalized;
   } catch {
     return [];
   }
