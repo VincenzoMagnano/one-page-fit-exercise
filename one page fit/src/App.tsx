@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { useLocalList } from "./hooks/useLocalList";
 import type { ExerciseItem, SectionItem } from "./types";
@@ -15,6 +15,7 @@ function App() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [openById, setOpenById] = useState<Record<string, boolean>>({});
+  const [headerHidden, setHeaderHidden] = useState(false);
   const [composer, setComposer] = useState<{ exercise: string; series: string; reps: string; weight: string; restSec: string }>({
     exercise: "",
     series: "",
@@ -24,6 +25,30 @@ function App() {
   });
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const exerciseRef = useRef<HTMLInputElement | null>(null);
+  const lastScrollYRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+
+  // Hide header on scroll down, show on scroll up
+  useEffect(() => {
+    function onScroll() {
+      const run = () => {
+        rafRef.current = null;
+        const y = window.scrollY || 0;
+        const last = lastScrollYRef.current || 0;
+        const delta = y - last;
+        lastScrollYRef.current = y;
+        if (y <= 8) return setHeaderHidden(false);
+        if (delta > 2) setHeaderHidden(true); // scrolling down
+        else if (delta < -2) setHeaderHidden(false); // scrolling up
+      };
+      if (rafRef.current == null) rafRef.current = requestAnimationFrame(run);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   const parsedRest = useMemo(() => {
     const trimmed = composer.restSec.trim();
@@ -81,7 +106,7 @@ function App() {
   return (
     <div className="min-h-full flex flex-col items-center">
       <div className="w-full max-w-screen-sm flex-1 pb-[calc(24px+var(--safe-bottom))]">
-        <header className="sticky top-0 z-10 bg-neutral-950/80 backdrop-blur border-b border-neutral-800">
+        <header className={`sticky top-0 z-10 bg-neutral-950/80 backdrop-blur border-b border-neutral-800 transition-transform duration-200 ${headerHidden ? "-translate-y-full" : "translate-y-0"}`}>
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="font-semibold">Gym TODO</div>
             <div className="flex items-center gap-2">
