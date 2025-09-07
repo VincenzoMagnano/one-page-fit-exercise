@@ -8,13 +8,14 @@ import { Card } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
 import { Separator } from "./components/ui/separator";
 import { AlertDialog } from "./components/ui/alert-dialog";
-import { X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 
 function App() {
   const { items, add, update, remove, clearAll, duplicateLast } = useLocalList();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(true);
+  const [openById, setOpenById] = useState<Record<string, boolean>>({});
   const [composer, setComposer] = useState<{ exercise: string; series: string; reps: string; weight: string; restSec: string }>({
     exercise: "",
     series: "",
@@ -84,63 +85,86 @@ function App() {
         </header>
 
         <main className="p-4 space-y-3">
-          {items.map((it) => (
-            <Card key={it.id} className="flex items-center gap-3">
-              <div className="grid grid-cols-6 sm:grid-cols-5 gap-2 flex-1">
-                <Input
-                  className="col-span-6 sm:col-span-1"
-                  value={it.exercise}
-                  placeholder="Exercise"
-                  onChange={(e) => update(it.id, { exercise: e.target.value })}
-                />
-                <Input
-                  className="col-span-3 sm:col-span-1"
-                  value={it.series?.toString() ?? ""}
-                  inputMode="numeric"
-                  placeholder="Series"
-                  onChange={(e) => {
-                    const v = e.target.value.trim();
-                    if (v === "") return update(it.id, { series: undefined });
-                    const n = Number(v);
-                    if (Number.isFinite(n)) update(it.id, { series: n });
-                  }}
-                />
-                <Input
-                  className="col-span-3 sm:col-span-1"
-                  value={it.reps ?? ""}
-                  placeholder="Reps"
-                  onChange={(e) => update(it.id, { reps: e.target.value })}
-                />
-                <Input
-                  className="col-span-3 sm:col-span-1"
-                  value={it.weight?.toString() ?? ""}
-                  inputMode="numeric"
-                  placeholder="Weight"
-                  onChange={(e) => {
-                    const v = e.target.value.trim();
-                    if (v === "") return update(it.id, { weight: undefined });
-                    const n = Number(v);
-                    if (Number.isFinite(n)) update(it.id, { weight: n });
-                  }}
-                />
-                <Input
-                  className="col-span-3 sm:col-span-1"
-                  value={it.restSec?.toString() ?? ""}
-                  inputMode="numeric"
-                  placeholder="Rest (s)"
-                  onChange={(e) => {
-                    const v = e.target.value.trim();
-                    if (v === "") return update(it.id, { restSec: undefined });
-                    const n = Number(v);
-                    if (Number.isFinite(n)) update(it.id, { restSec: n });
-                  }}
-                />
-              </div>
-              <Button aria-label="Delete" variant="ghost" size="icon" onClick={() => remove(it.id)}>
-                <X className="h-5 w-5" />
-              </Button>
-            </Card>
-          ))}
+          {items.map((it) => {
+            const isOpen = !!openById[it.id];
+            return (
+              <Card key={it.id} className="flex flex-col">
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 flex items-center justify-between gap-3"
+                  onClick={() => setOpenById((s) => ({ ...s, [it.id]: !s[it.id] }))}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="font-semibold truncate">{it.exercise || "Unnamed"}</div>
+                    {!isOpen && (
+                      <div className="flex items-center gap-1">
+                        {it.reps ? <Badge>{it.reps}</Badge> : null}
+                        {typeof it.restSec === "number" ? <Badge variant="secondary">{it.restSec}s</Badge> : null}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronDown className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : "rotate-0"}`} />
+                </button>
+                {isOpen && (
+                  <div className="px-3 pb-3 pt-1 flex items-start gap-3">
+                    <div className="grid grid-cols-6 sm:grid-cols-5 gap-2 flex-1">
+                      <Input
+                        className="col-span-6 sm:col-span-1 font-semibold"
+                        value={it.exercise}
+                        placeholder="Exercise"
+                        onChange={(e) => update(it.id, { exercise: e.target.value })}
+                      />
+                      <Input
+                        className="col-span-3 sm:col-span-1"
+                        value={it.series?.toString() ?? ""}
+                        inputMode="numeric"
+                        placeholder="Series"
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          if (v === "") return update(it.id, { series: undefined });
+                          const n = Number(v);
+                          if (Number.isFinite(n)) update(it.id, { series: n });
+                        }}
+                      />
+                      <Input
+                        className="col-span-3 sm:col-span-1"
+                        value={it.reps ?? ""}
+                        placeholder="Reps"
+                        onChange={(e) => update(it.id, { reps: e.target.value })}
+                      />
+                      <Input
+                        className="col-span-3 sm:col-span-1"
+                        value={it.weight?.toString() ?? ""}
+                        inputMode="numeric"
+                        placeholder="Weight"
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          if (v === "") return update(it.id, { weight: undefined });
+                          const n = Number(v);
+                          if (Number.isFinite(n)) update(it.id, { weight: n });
+                        }}
+                      />
+                      <Input
+                        className="col-span-3 sm:col-span-1"
+                        value={it.restSec?.toString() ?? ""}
+                        inputMode="numeric"
+                        placeholder="Rest (s)"
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          if (v === "") return update(it.id, { restSec: undefined });
+                          const n = Number(v);
+                          if (Number.isFinite(n)) update(it.id, { restSec: n });
+                        }}
+                      />
+                    </div>
+                    <Button aria-label="Delete" variant="ghost" size="icon" onClick={() => remove(it.id)}>
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </main>
       </div>
 
