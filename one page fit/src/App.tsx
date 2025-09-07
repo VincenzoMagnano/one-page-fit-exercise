@@ -180,9 +180,15 @@ function App() {
   }
 
   function handleTouchStart(e: React.TouchEvent, id: string, type: 'exercise' | 'section') {
-    // Prevent context menu on long press
+    // Prevent text selection and context menu
     e.preventDefault();
+    e.stopPropagation();
     handleDragStart(e, id, type);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -213,7 +219,7 @@ function App() {
               return (
                 <div 
                   key={it.id} 
-                  className={`px-1 pt-6 pb-2 relative transition-all duration-200 ${
+                  className={`px-1 pt-6 pb-2 relative transition-all duration-200 select-none ${
                     draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
                   } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
                   onContextMenu={(e) => handleContextMenu(e, it.id, 'section')}
@@ -222,8 +228,8 @@ function App() {
                   onMouseUp={handleDragEnd}
                   onTouchEnd={handleDragEnd}
                   onMouseMove={(e) => handleDragOver(e, index)}
-                  onTouchMove={(e) => handleDragOver(e, index)}
-                  style={{ cursor: 'grab' }}
+                  onTouchMove={handleTouchMove}
+                  style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
                 >
                   <div className="flex items-center justify-between border-b border-neutral-700 pb-2">
                     <div className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
@@ -243,7 +249,7 @@ function App() {
             return (
               <Card 
                 key={it.id} 
-                className={`flex flex-col transition-all duration-200 ${
+                className={`flex flex-col transition-all duration-200 select-none ${
                   draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
                 } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
                 onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
@@ -252,14 +258,15 @@ function App() {
                 onMouseUp={handleDragEnd}
                 onTouchEnd={handleDragEnd}
                 onMouseMove={(e) => handleDragOver(e, index)}
-                onTouchMove={(e) => handleDragOver(e, index)}
-                style={{ cursor: 'grab' }}
+                onTouchMove={handleTouchMove}
+                style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
               >
                 <button
                   type="button"
-                  className="w-full px-3 py-2 flex items-center justify-between gap-3"
+                  className="w-full px-3 py-2 flex items-center justify-between gap-3 select-none"
                   onClick={() => setOpenById((s) => ({ ...s, [it.id]: !s[it.id] }))}
                   onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
+                  style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <div className="font-semibold truncate">{it.exercise || "Unnamed"}</div>
