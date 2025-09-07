@@ -6,7 +6,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card } from "./components/ui/card";
 import { AlertDialog } from "./components/ui/alert-dialog";
-import { X, ChevronDown, Plus } from "lucide-react";
+import { X, ChevronDown, Plus, Menu } from "lucide-react";
 
 function App() {
   const { items, add, update, remove, clearAll, duplicateLast, setItems } = useLocalList();
@@ -24,11 +24,10 @@ function App() {
   });
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number; type: 'exercise' | 'section' } | null>(null);
-  const [draggedItem, setDraggedItem] = useState<{ id: string; type: 'exercise' | 'section' } | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [touchStartY, setTouchStartY] = useState(0);
+  const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [burgerMenuOpen, setBurgerMenuOpen] = useState(false);
+  const [burgerMenuVisible, setBurgerMenuVisible] = useState(false);
   const exerciseRef = useRef<HTMLInputElement | null>(null);
   const lastScrollYRef = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -58,13 +57,31 @@ function App() {
   // Close context menu on click outside
   useEffect(() => {
     function handleClickOutside() {
-      setContextMenu(null);
+      closeContextMenu();
     }
     if (contextMenu) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [contextMenu]);
+
+  // Close burger menu on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking on the burger menu button or the dropdown itself
+      if (target.closest('[data-burger-menu]') || target.closest('[data-burger-dropdown]')) {
+        return;
+      }
+      if (burgerMenuOpen) {
+        closeBurgerMenu();
+      }
+    }
+    if (burgerMenuOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [burgerMenuOpen]);
 
 
   const parsedRest = useMemo(() => {
@@ -141,104 +158,92 @@ function App() {
   function handleContextMenu(e: React.MouseEvent, id: string, type: 'exercise' | 'section') {
     e.preventDefault();
     setContextMenu({ id, x: e.clientX, y: e.clientY, type });
+    // Trigger animation after a small delay to ensure DOM update
+    setTimeout(() => setContextMenuVisible(true), 10);
   }
 
   function handleDeleteSection(sectionId: string) {
     remove(sectionId);
-    setContextMenu(null);
+    closeContextMenu();
   }
 
-  function handleDragStart(e: React.MouseEvent | React.TouchEvent, id: string, type: 'exercise' | 'section') {
+
+  const handleLongPressStart = (e: React.TouchEvent, id: string, type: 'exercise' | 'section') => {
     e.preventDefault();
-    setDraggedItem({ id, type });
-    setContextMenu(null);
-  }
-
-  function handleDragOver(e: React.MouseEvent | React.TouchEvent, index: number) {
-    e.preventDefault();
-    setDragOverIndex(index);
-  }
-
-  function handleDragEnd() {
-    if (!draggedItem || dragOverIndex === null) {
-      setDraggedItem(null);
-      setDragOverIndex(null);
-      return;
-    }
-
-    const draggedIndex = items.findIndex(item => item.id === draggedItem.id);
-    if (draggedIndex === -1 || draggedIndex === dragOverIndex) {
-      setDraggedItem(null);
-      setDragOverIndex(null);
-      return;
-    }
-
-    // Reorder items
-    const newItems = [...items];
-    const [draggedItemData] = newItems.splice(draggedIndex, 1);
-    newItems.splice(dragOverIndex, 0, draggedItemData);
-    
-    setItems(newItems);
-    setDraggedItem(null);
-    setDragOverIndex(null);
-  }
-
-  function handleLongPressStart(e: React.TouchEvent, id: string, type: 'exercise' | 'section') {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const touch = e.touches[0];
-    setTouchStartY(touch.clientY);
-    
-    // Start long press timer
     const timer = setTimeout(() => {
-      setIsDragging(true);
-      setDraggedItem({ id, type });
-      setContextMenu(null);
-      
-      // Prevent page scroll
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
+      const rect = (e.target as HTMLElement).getBoundingClientRect();
+      setContextMenu({
+        id,
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        type
+      });
+      // Trigger animation after a small delay to ensure DOM update
+      setTimeout(() => setContextMenuVisible(true), 10);
     }, 500); // 500ms long press
-    
     setLongPressTimer(timer);
-  }
+  };
 
-  function handleLongPressMove(e: React.TouchEvent, index: number) {
-    if (!isDragging) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const touch = e.touches[0];
-    const deltaY = Math.abs(touch.clientY - touchStartY);
-    
-    if (deltaY > 15) {
-      setDragOverIndex(index);
-    }
-  }
-
-  function handleLongPressEnd(e: React.TouchEvent) {
-    // Clear long press timer if not yet triggered
+  const handleLongPressEnd = () => {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       setLongPressTimer(null);
     }
+  };
+
+  const moveItem = (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
+    const currentIndex = items.findIndex(item => item.id === id);
+    if (currentIndex === -1) return;
+
+    let newIndex = currentIndex;
     
-    if (!isDragging) return;
+    switch (direction) {
+      case 'up':
+        newIndex = Math.max(currentIndex - 1, 0);
+        break;
+      case 'down':
+        newIndex = Math.min(currentIndex + 1, items.length - 1);
+        break;
+      case 'top':
+        newIndex = 0;
+        break;
+      case 'bottom':
+        newIndex = items.length - 1;
+        break;
+    }
+
+    if (newIndex !== currentIndex) {
+      const newItems = [...items];
+      const [movedItem] = newItems.splice(currentIndex, 1);
+      newItems.splice(newIndex, 0, movedItem);
+      setItems(newItems);
+    }
     
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Restore page scroll
-    document.body.style.overflow = '';
-    document.body.style.position = '';
-    document.body.style.width = '';
-    
-    setIsDragging(false);
-    handleDragEnd();
-  }
+    closeContextMenu();
+  };
+
+  const closeContextMenu = () => {
+    setContextMenuVisible(false);
+    setTimeout(() => {
+      setContextMenu(null);
+    }, 200); // Wait for animation to complete
+  };
+
+  const toggleBurgerMenu = () => {
+    if (burgerMenuOpen) {
+      closeBurgerMenu();
+    } else {
+      setBurgerMenuOpen(true);
+      setTimeout(() => setBurgerMenuVisible(true), 10);
+    }
+  };
+
+  const closeBurgerMenu = () => {
+    setBurgerMenuVisible(false);
+    setTimeout(() => {
+      setBurgerMenuOpen(false);
+    }, 200);
+  };
 
   function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
@@ -255,30 +260,68 @@ function App() {
         <header className={`sticky top-0 z-10 bg-neutral-950/80 backdrop-blur border-b border-neutral-800 transition-transform duration-200 ${headerHidden ? "-translate-y-full" : "translate-y-0"}`}>
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="font-semibold">Gym TODO</div>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={duplicateLast}>Duplicate last</Button>
-              <Button variant="destructive" onClick={() => setConfirmOpen(true)}>Clear all</Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleBurgerMenu}
+                className="h-8 w-8"
+                data-burger-menu
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              
+              {/* Burger Menu Dropdown */}
+              {burgerMenuOpen && (
+                <div
+                  className={`absolute right-0 top-full mt-2 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl py-1 min-w-[160px] transition-all duration-200 ${
+                    burgerMenuVisible 
+                      ? 'opacity-100 scale-100 translate-y-0' 
+                      : 'opacity-0 scale-95 -translate-y-2'
+                  }`}
+                  onMouseLeave={closeBurgerMenu}
+                  data-burger-dropdown
+                >
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-150"
+                    onClick={() => {
+                      duplicateLast();
+                      closeBurgerMenu();
+                    }}
+                  >
+                    Duplicate last
+                  </button>
+                  <div className="border-t border-neutral-700 my-1" />
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-neutral-700 transition-colors duration-150"
+                    onClick={() => {
+                      setConfirmOpen(true);
+                      closeBurgerMenu();
+                    }}
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
 
         <main className="p-4 space-y-3">
-          {items.map((it, index) => {
+          {items.map((it) => {
             if (it.type === "section") {
               return (
                 <div 
                   key={it.id} 
-                  className={`px-1 pt-6 pb-2 relative transition-all duration-200 select-none ${
-                    draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
-                  } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
+                  className="px-1 pt-6 pb-2 relative transition-all duration-300 select-none"
                   onContextMenu={(e) => handleContextMenu(e, it.id, 'section')}
                   onTouchStart={(e) => handleLongPressStart(e, it.id, 'section')}
-                  onTouchMove={(e) => handleLongPressMove(e, index)}
                   onTouchEnd={handleLongPressEnd}
-                  onMouseDown={(e) => handleDragStart(e, it.id, 'section')}
-                  onMouseMove={(e) => handleDragOver(e, index)}
-                  onMouseUp={handleDragEnd}
-                  style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
+                  onTouchMove={handleLongPressEnd}
+                  style={{ 
+                    WebkitUserSelect: 'none', 
+                    userSelect: 'none'
+                  }}
                 >
                   <div className="flex items-center justify-between border-b border-neutral-700 pb-2">
                     <div className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
@@ -298,23 +341,21 @@ function App() {
             return (
               <Card 
                 key={it.id} 
-                className={`flex flex-col transition-all duration-200 select-none ${
-                  draggedItem?.id === it.id ? 'opacity-50 scale-95' : ''
-                } ${dragOverIndex === index ? 'border-t-2 border-blue-500' : ''}`}
+                className="flex flex-col transition-all duration-300 select-none"
                 onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
-                style={{ cursor: 'grab', WebkitUserSelect: 'none', userSelect: 'none' }}
+                onTouchStart={(e) => handleLongPressStart(e, it.id, 'exercise')}
+                onTouchEnd={handleLongPressEnd}
+                onTouchMove={handleLongPressEnd}
+                style={{ 
+                  WebkitUserSelect: 'none', 
+                  userSelect: 'none'
+                }}
               >
                 <button
                   type="button"
                   className="w-full px-3 py-2 flex items-center justify-between gap-3 select-none"
                   onClick={() => setOpenById((s) => ({ ...s, [it.id]: !s[it.id] }))}
                   onContextMenu={(e) => handleContextMenu(e, it.id, 'exercise')}
-                  onTouchStart={(e) => handleLongPressStart(e, it.id, 'exercise')}
-                  onTouchMove={(e) => handleLongPressMove(e, index)}
-                  onTouchEnd={handleLongPressEnd}
-                  onMouseDown={(e) => handleDragStart(e, it.id, 'exercise')}
-                  onMouseMove={(e) => handleDragOver(e, index)}
-                  onMouseUp={handleDragEnd}
                   style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
                 >
                   <div className="flex min-w-0 items-center gap-2">
@@ -496,16 +537,50 @@ function App() {
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl py-1 min-w-[160px]"
+          className={`fixed z-50 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl py-1 min-w-[180px] transition-all duration-200 ${
+            contextMenuVisible 
+              ? 'opacity-100 scale-100 translate-y-0' 
+              : 'opacity-0 scale-95 -translate-y-2'
+          }`}
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onMouseLeave={() => setContextMenu(null)}
+          onMouseLeave={closeContextMenu}
         >
+          {/* Movement options for both exercises and sections */}
+          <button
+            className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-150"
+            onClick={() => moveItem(contextMenu.id, 'up')}
+          >
+            Move up
+          </button>
+          <button
+            className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-150"
+            onClick={() => moveItem(contextMenu.id, 'down')}
+          >
+            Move down
+          </button>
+          <button
+            className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-150"
+            onClick={() => moveItem(contextMenu.id, 'top')}
+          >
+            Move to top
+          </button>
+          <button
+            className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-150"
+            onClick={() => moveItem(contextMenu.id, 'bottom')}
+          >
+            Move to bottom
+          </button>
+          
+          {/* Separator */}
+          <div className="border-t border-neutral-700 my-1" />
+          
+          {/* Type-specific options */}
           {contextMenu.type === 'exercise' && (
             <button
-              className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700"
+              className="w-full px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-700 transition-colors duration-150"
               onClick={() => {
                 handleInsertSectionAbove(contextMenu.id);
-                setContextMenu(null);
+                closeContextMenu();
               }}
             >
               Insert section above
@@ -513,7 +588,7 @@ function App() {
           )}
           {contextMenu.type === 'section' && (
             <button
-              className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-neutral-700"
+              className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-neutral-700 transition-colors duration-150"
               onClick={() => handleDeleteSection(contextMenu.id)}
             >
               Delete section
