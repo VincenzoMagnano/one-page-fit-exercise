@@ -5,7 +5,6 @@ import type { ExerciseItem, SectionItem } from "./types";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card } from "./components/ui/card";
-import { Badge } from "./components/ui/badge";
 import { AlertDialog } from "./components/ui/alert-dialog";
 import { X, ChevronDown, Plus } from "lucide-react";
 
@@ -136,9 +135,31 @@ function App() {
                   <div className="flex min-w-0 items-center gap-2">
                     <div className="font-semibold truncate">{it.exercise || "Unnamed"}</div>
                     {!isOpen && (
-                      <div className="flex items-center gap-1">
-                        {it.reps ? <Badge>{it.reps}</Badge> : null}
-                        {typeof it.restSec === "number" ? <Badge>{it.restSec}s</Badge> : null}
+                      <div className="flex items-center gap-1 text-sm text-neutral-300">
+                        {typeof it.series === "number" && it.reps ? (
+                          <>
+                            <span>{it.series}</span>
+                            <span className="text-neutral-500">×</span>
+                            <span>{it.reps}</span>
+                          </>
+                        ) : (
+                          <>
+                            {typeof it.series === "number" ? <span>{it.series}</span> : null}
+                            {it.reps ? <span>{it.reps}</span> : null}
+                          </>
+                        )}
+                        {typeof it.weight === "number" && (
+                          <>
+                            <span className="text-neutral-500">,</span>
+                            <span>{it.weight}kg</span>
+                          </>
+                        )}
+                        {typeof it.restSec === "number" && (
+                          <>
+                            <span className="text-neutral-500">,</span>
+                            <span>{it.restSec}s</span>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
